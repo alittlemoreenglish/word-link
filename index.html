@@ -1,0 +1,993 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Link Challenge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-image: url('background.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+        
+        .letter-box {
+            width: 1.8rem;
+            height: 2.2rem;
+            border-radius: 0.375rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 0.15rem;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        @media (max-width: 640px) {
+            .letter-box {
+                width: 1.5rem;
+                height: 1.8rem;
+                margin: 0 0.1rem;
+                font-size: 0.875rem;
+            }
+        }
+        
+        .letter-box.filled {
+            transform: scale(1.05);
+        }
+        
+        .letter-box.correct {
+            background-color: #34d399 !important;
+            color: white;
+        }
+        
+        .letter-box.highlight {
+            animation: pulse 2s infinite;
+            background-color: #fcd34d !important;
+            color: #92400e;
+        }
+        
+        .timer-bar {
+            height: 0.5rem;
+            border-radius: 9999px;
+            overflow: hidden;
+            background-color: rgba(255,255,255,0.3);
+        }
+        
+        .timer-progress {
+            height: 100%;
+            background-color: #f43f5e;
+            transition: width 1s linear;
+        }
+        
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            opacity: 0;
+        }
+        
+        @keyframes fall {
+            0% {
+                transform: translateY(-100px) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        
+        .level-complete-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 40;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+        }
+        
+        .level-complete-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .word-container {
+            transition: all 0.3s ease;
+        }
+        
+        .word-container.active {
+            transform: scale(1.05);
+        }
+        
+        .word-container.completed {
+            opacity: 0.8;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.5s ease-in-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 0.5rem;
+            background-color: rgba(255, 255, 255, 0.8);
+            text-align: center;
+            font-size: 0.75rem;
+            z-index: 10;
+        }
+        
+        .footer a {
+            color: #4f46e5;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .footer img {
+            margin-left: 0.25rem;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-4">
+    <!-- Audio elements -->
+    <audio id="correct-sound" preload="auto">
+        <source src="correct-sound.wav" type="audio/wav">
+    </audio>
+    
+    <audio id="background-music" loop>
+        <source src="background.mp3" type="audio/mp3">
+    </audio>
+    
+    <!-- Home Screen -->
+    <div id="home-screen" class="w-full max-w-md bg-white rounded-xl shadow-xl overflow-hidden relative fade-in">
+        <div class="bg-indigo-600 p-4 text-white text-center">
+            <h1 class="text-2xl font-bold">Word Link</h1>
+            <p class="text-sm text-indigo-200 mt-1">Connect the words in the chain!</p>
+        </div>
+        
+        <div class="p-6">
+            <div class="mb-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-3">How to Play</h2>
+                <ul class="space-y-3 text-sm text-gray-700">
+                    <li class="flex items-start">
+                        <span class="inline-flex items-center justify-center bg-indigo-100 text-indigo-800 rounded-full h-5 w-5 text-xs font-bold mr-2 mt-0.5">1</span>
+                        <span>Each level has a chain of connected words.</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="inline-flex items-center justify-center bg-indigo-100 text-indigo-800 rounded-full h-5 w-5 text-xs font-bold mr-2 mt-0.5">2</span>
+                        <span>The first word is revealed. You need to guess each next word in the chain.</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="inline-flex items-center justify-center bg-indigo-100 text-indigo-800 rounded-full h-5 w-5 text-xs font-bold mr-2 mt-0.5">3</span>
+                        <span>Each word is related to the previous one. For example: "Good" ¡÷ "morning" ¡÷ "routine"</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="inline-flex items-center justify-center bg-indigo-100 text-indigo-800 rounded-full h-5 w-5 text-xs font-bold mr-2 mt-0.5">4</span>
+                        <span>You'll see the first letter of each word as a hint.</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="inline-flex items-center justify-center bg-indigo-100 text-indigo-800 rounded-full h-5 w-5 text-xs font-bold mr-2 mt-0.5">5</span>
+                        <span>Complete all words before the timer runs out!</span>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="flex flex-col space-y-3">
+                <button id="start-game-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-6 rounded-lg font-medium text-sm transition-colors">
+                    Start Game
+                </button>
+                <button id="home-settings-btn" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 py-2 px-6 rounded-lg font-medium text-sm transition-colors">
+                    Settings
+                </button>
+                <button id="home-reset-btn" class="bg-red-100 hover:bg-red-200 text-red-800 py-2 px-6 rounded-lg font-medium text-sm transition-colors">
+                    Reset All Progress
+                </button>
+            </div>
+            
+            <div class="mt-6 text-center">
+                <p class="text-xs text-gray-500">Your progress is automatically saved</p>
+                <div class="mt-2 flex justify-center space-x-4">
+                    <div class="text-center">
+                        <div class="text-xs text-gray-500">Current Level</div>
+                        <div id="home-level" class="font-bold text-indigo-600">1</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-xs text-gray-500">Total Score</div>
+                        <div id="home-score" class="font-bold text-indigo-600">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Game Screen -->
+    <div id="game-screen" class="w-full max-w-md bg-white rounded-xl shadow-xl overflow-hidden relative hidden">
+        <div class="bg-indigo-600 p-3 text-white">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <button id="home-btn" class="bg-indigo-700 hover:bg-indigo-800 text-white text-xs px-2 py-1 rounded-md" title="Home">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                        </svg>
+                    </button>
+                    <h1 class="text-xl font-bold">Word Link</h1>
+                </div>
+                <div class="flex space-x-2">
+                    <button id="restart-btn" class="bg-indigo-700 hover:bg-indigo-800 text-white text-xs px-2 py-1 rounded-md" title="Restart Level">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                    <button id="settings-btn" class="bg-indigo-700 hover:bg-indigo-800 text-white text-xs px-2 py-1 rounded-md" title="Settings">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="flex justify-between items-center mt-1 text-xs text-indigo-200">
+                <div>Level: <span id="level" class="font-bold text-white">1</span></div>
+                <div>Score: <span id="score" class="font-bold text-white">0</span></div>
+            </div>
+        </div>
+        
+        <div class="p-4">
+            <!-- Timer -->
+            <div class="mb-3">
+                <div class="flex justify-between mb-1">
+                    <span class="text-xs font-medium text-gray-700">Time remaining:</span>
+                    <span id="timer-text" class="text-xs font-medium text-gray-700">60s</span>
+                </div>
+                <div class="timer-bar">
+                    <div id="timer-progress" class="timer-progress" style="width: 100%;"></div>
+                </div>
+            </div>
+            
+            <!-- Game Area -->
+            <div id="game-area" class="space-y-2">
+                <!-- Words will be inserted here -->
+            </div>
+            
+            <!-- Input Area -->
+            <div id="input-area" class="mt-4">
+                <div class="flex space-x-2">
+                    <input type="text" id="word-input" class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Type your answer...">
+                    <button id="submit-btn" class="bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm">Submit</button>
+                </div>
+                
+                <div class="mt-2 flex justify-between items-center">
+                    <button id="hint-btn" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Need a hint?</button>
+                    <p id="hint-text" class="text-xs text-gray-600 hidden"></p>
+                </div>
+            </div>
+            
+            <!-- Next Level Button (initially hidden) -->
+            <div id="next-level-container" class="mt-4 text-center hidden">
+                <button id="next-level-btn" class="bg-indigo-600 text-white py-2 px-6 rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm">Next Challenge</button>
+            </div>
+        </div>
+        
+        <!-- Level Complete Overlay -->
+        <div id="level-complete-overlay" class="level-complete-overlay">
+            <div class="bg-white rounded-xl p-6 max-w-xs w-full mx-4 shadow-2xl text-center">
+                <div class="text-xl font-bold text-indigo-600 mb-2">Level Complete!</div>
+                <div class="mb-4">
+                    <p class="text-gray-700 text-sm">Time Bonus: <span id="time-bonus" class="font-bold">0</span> points</p>
+                    <p class="text-gray-700 text-sm">Total Score: <span id="level-score" class="font-bold">0</span></p>
+                </div>
+                <p class="text-gray-700 text-sm mb-2">Final word revealed in the chain!</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Game Over Modal -->
+    <div id="game-over-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+        <div class="bg-white rounded-xl p-6 max-w-xs w-full mx-4 shadow-2xl">
+            <h2 id="modal-title" class="text-xl font-bold text-center mb-3">Game Over!</h2>
+            <p id="modal-message" class="text-center text-gray-700 mb-4 text-sm">Your final score: <span id="final-score">0</span></p>
+            <div class="flex justify-center">
+                <button id="play-again-btn" class="bg-indigo-600 text-white py-2 px-6 rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm">Play Again</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+        <div class="bg-white rounded-xl p-6 max-w-xs w-full mx-4 shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Settings</h2>
+                <button id="close-settings-btn" class="text-gray-500 hover:text-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="sound-effects" class="rounded text-indigo-600 focus:ring-indigo-500 border-gray-300" checked>
+                        <span class="text-sm text-gray-700">Sound Effects</span>
+                    </label>
+                </div>
+                <div class="flex items-center justify-between">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="background-music-toggle" class="rounded text-indigo-600 focus:ring-indigo-500 border-gray-300" checked>
+                        <span class="text-sm text-gray-700">Background Music</span>
+                    </label>
+                </div>
+                <div class="pt-4 border-t border-gray-200">
+                    <button id="save-settings-btn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm">Save Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+        <a href="https://sites.google.com/view/aaronshi" target="_blank" rel="noopener noreferrer">
+            Created by Aaron Shi. <img src="https://alittlemoreenglish.weebly.com/uploads/2/6/6/3/26638990/favicon-32x32_orig.png" alt="Aaron Shi" width="15" height="15">
+        </a>
+    </div>
+    
+    <script>
+        // Game data
+        const wordChains = [
+            ["Good", "morning", "routine", "exercise", "plan", "ahead"],
+            ["Heavy", "rain", "forest", "fire", "alarm", "clock"],
+            ["Fast", "food", "chain", "reaction", "time", "management"],
+            ["Deep", "sleep", "pattern", "recognition", "software", "developer"],
+            ["High", "quality", "control", "panel", "discussion", "topic"],
+            ["Strong", "coffee", "break", "free", "time", "zone"]
+        ];
+        
+        // Game state
+        let currentLevel = 0;
+        let currentChain = [];
+        let currentWordIndex = 1; // Start with the second word (index 1)
+        let score = 0;
+        let timeLeft = 60;
+        let timer;
+        let hintUsed = false;
+        let soundEnabled = true;
+        let musicEnabled = true;
+        let gameActive = false;
+        
+        // DOM elements - Audio
+        const correctSound = document.getElementById('correct-sound');
+        const backgroundMusic = document.getElementById('background-music');
+        
+        // DOM elements - Home Screen
+        const homeScreen = document.getElementById('home-screen');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const homeSettingsBtn = document.getElementById('home-settings-btn');
+        const homeResetBtn = document.getElementById('home-reset-btn');
+        const homeLevel = document.getElementById('home-level');
+        const homeScore = document.getElementById('home-score');
+        
+        // DOM elements - Game Screen
+        const gameScreen = document.getElementById('game-screen');
+        const homeBtn = document.getElementById('home-btn');
+        const gameArea = document.getElementById('game-area');
+        const wordInput = document.getElementById('word-input');
+        const submitBtn = document.getElementById('submit-btn');
+        const hintBtn = document.getElementById('hint-btn');
+        const hintText = document.getElementById('hint-text');
+        const timerText = document.getElementById('timer-text');
+        const timerProgress = document.getElementById('timer-progress');
+        const scoreElement = document.getElementById('score');
+        const levelElement = document.getElementById('level');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+        const finalScore = document.getElementById('final-score');
+        const playAgainBtn = document.getElementById('play-again-btn');
+        const levelCompleteOverlay = document.getElementById('level-complete-overlay');
+        const timeBonusElement = document.getElementById('time-bonus');
+        const levelScoreElement = document.getElementById('level-score');
+        const nextLevelBtn = document.getElementById('next-level-btn');
+        const nextLevelContainer = document.getElementById('next-level-container');
+        const restartBtn = document.getElementById('restart-btn');
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsModal = document.getElementById('settings-modal');
+        const closeSettingsBtn = document.getElementById('close-settings-btn');
+        const soundEffectsCheckbox = document.getElementById('sound-effects');
+        const backgroundMusicToggle = document.getElementById('background-music-toggle');
+        const saveSettingsBtn = document.getElementById('save-settings-btn');
+        
+        // Play sound effect
+        function playCorrectSound() {
+            if (soundEnabled) {
+                try {
+                    correctSound.currentTime = 0;
+                    correctSound.play().catch(error => {
+                        console.log("Audio playback failed:", error);
+                    });
+                } catch (error) {
+                    console.log("Audio error:", error);
+                }
+            }
+        }
+        
+        // Control background music
+        function toggleBackgroundMusic() {
+            if (musicEnabled) {
+                try {
+                    backgroundMusic.play().catch(error => {
+                        console.log("Background music playback failed:", error);
+                    });
+                } catch (error) {
+                    console.log("Background music error:", error);
+                }
+            } else {
+                backgroundMusic.pause();
+            }
+        }
+        
+        // Load saved progress
+        function loadProgress() {
+            const savedLevel = localStorage.getItem('wordLinkLevel');
+            const savedScore = localStorage.getItem('wordLinkScore');
+            const savedSoundEnabled = localStorage.getItem('wordLinkSoundEnabled');
+            const savedMusicEnabled = localStorage.getItem('wordLinkMusicEnabled');
+            
+            if (savedLevel !== null) {
+                currentLevel = parseInt(savedLevel);
+                // Make sure we don't exceed available levels
+                if (currentLevel >= wordChains.length) {
+                    currentLevel = 0;
+                }
+            }
+            
+            if (savedScore !== null) {
+                score = parseInt(savedScore);
+            }
+            
+            if (savedSoundEnabled !== null) {
+                soundEnabled = savedSoundEnabled === 'true';
+                soundEffectsCheckbox.checked = soundEnabled;
+            }
+            
+            if (savedMusicEnabled !== null) {
+                musicEnabled = savedMusicEnabled === 'true';
+                backgroundMusicToggle.checked = musicEnabled;
+                toggleBackgroundMusic();
+            }
+            
+            // Update UI
+            updateUIWithProgress();
+        }
+        
+        // Update UI with current progress
+        function updateUIWithProgress() {
+            scoreElement.textContent = score;
+            levelElement.textContent = currentLevel + 1;
+            homeScore.textContent = score;
+            homeLevel.textContent = currentLevel + 1;
+        }
+        
+        // Save progress
+        function saveProgress() {
+            localStorage.setItem('wordLinkLevel', currentLevel);
+            localStorage.setItem('wordLinkScore', score);
+            localStorage.setItem('wordLinkSoundEnabled', soundEnabled);
+            localStorage.setItem('wordLinkMusicEnabled', musicEnabled);
+            updateUIWithProgress();
+        }
+        
+        // Reset progress
+        function resetProgress() {
+            localStorage.removeItem('wordLinkLevel');
+            localStorage.removeItem('wordLinkScore');
+            currentLevel = 0;
+            score = 0;
+            updateUIWithProgress();
+            
+            if (gameActive) {
+                startLevel();
+            }
+        }
+        
+        // Reset current level
+        function resetCurrentLevel() {
+            clearInterval(timer);
+            startLevel();
+        }
+        
+        // Initialize game
+        function initGame() {
+            loadProgress();
+            showHomeScreen();
+            
+            // Try to start background music (may be blocked by browser)
+            document.addEventListener('click', function initialClick() {
+                toggleBackgroundMusic();
+                document.removeEventListener('click', initialClick);
+            }, { once: true });
+        }
+        
+        // Show home screen
+        function showHomeScreen() {
+            gameActive = false;
+            clearInterval(timer);
+            
+            homeScreen.classList.remove('hidden');
+            gameScreen.classList.add('hidden');
+            
+            updateUIWithProgress();
+        }
+        
+        // Show game screen
+        function showGameScreen() {
+            homeScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            gameScreen.classList.add('fade-in');
+            
+            gameActive = true;
+            startLevel();
+        }
+        
+        // Start a level
+        function startLevel() {
+            if (currentLevel >= wordChains.length) {
+                currentLevel = 0;
+            }
+            
+            currentChain = [...wordChains[currentLevel]];
+            currentWordIndex = 1;
+            timeLeft = 60;
+            hintUsed = false;
+            
+            // Reset UI
+            gameArea.innerHTML = '';
+            hintText.classList.add('hidden');
+            timerProgress.style.width = '100%';
+            timerText.textContent = `${timeLeft}s`;
+            levelCompleteOverlay.classList.remove('visible');
+            nextLevelContainer.classList.add('hidden');
+            
+            // Enable input
+            wordInput.disabled = false;
+            submitBtn.disabled = false;
+            
+            // Display first word
+            displayWordChain();
+            
+            // Start timer
+            clearInterval(timer);
+            timer = setInterval(updateTimer, 1000);
+            
+            // Focus on input
+            wordInput.value = '';
+            wordInput.focus();
+            
+            // Save progress
+            saveProgress();
+        }
+        
+        // Display the word chain
+        function displayWordChain() {
+            gameArea.innerHTML = '';
+            
+            for (let i = 0; i < currentChain.length; i++) {
+                const wordContainer = document.createElement('div');
+                wordContainer.className = 'word-container flex flex-col items-center mb-2';
+                wordContainer.id = `word-container-${i}`;
+                
+                if (i < currentWordIndex) {
+                    wordContainer.classList.add('completed');
+                }
+                
+                if (i === currentWordIndex) {
+                    wordContainer.classList.add('active');
+                }
+                
+                // Add connecting line except for the last word
+                if (i > 0) {
+                    const connector = document.createElement('div');
+                    connector.className = 'connector h-6 border-l-2 border-indigo-300 my-1';
+                    gameArea.appendChild(connector);
+                }
+                
+                // Word label
+                const label = document.createElement('div');
+                label.className = 'text-xs text-gray-500 mb-1';
+                label.textContent = `Word ${i + 1}`;
+                wordContainer.appendChild(label);
+                
+                // Word boxes
+                const wordBoxes = document.createElement('div');
+                wordBoxes.className = 'flex justify-center';
+                
+                const word = currentChain[i];
+                
+                // For the first word or completed words, show the full word
+                if (i === 0 || i < currentWordIndex) {
+                    for (let j = 0; j < word.length; j++) {
+                        const letterBox = document.createElement('div');
+                        letterBox.className = 'letter-box bg-indigo-100 text-indigo-800 filled';
+                        letterBox.textContent = word[j];
+                        wordBoxes.appendChild(letterBox);
+                    }
+                } 
+                // For the current word, show first letter and blanks
+                else if (i === currentWordIndex) {
+                    for (let j = 0; j < word.length; j++) {
+                        const letterBox = document.createElement('div');
+                        letterBox.className = 'letter-box';
+                        
+                        if (j === 0) {
+                            letterBox.className += ' bg-indigo-100 text-indigo-800';
+                            letterBox.textContent = word[j];
+                        } else {
+                            letterBox.className += ' bg-gray-100 text-gray-800';
+                            letterBox.textContent = '_';
+                        }
+                        
+                        wordBoxes.appendChild(letterBox);
+                    }
+                } 
+                // For future words, show nothing yet
+                else {
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'text-gray-400 italic text-xs';
+                    placeholder.textContent = '(next word)';
+                    wordBoxes.appendChild(placeholder);
+                }
+                
+                wordContainer.appendChild(wordBoxes);
+                gameArea.appendChild(wordContainer);
+            }
+        }
+        
+        // Update timer
+        function updateTimer() {
+            timeLeft--;
+            timerText.textContent = `${timeLeft}s`;
+            timerProgress.style.width = `${(timeLeft / 60) * 100}%`;
+            
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                endGame(false);
+            }
+        }
+        
+        // Check answer
+        function checkAnswer() {
+            const userAnswer = wordInput.value.trim().toLowerCase();
+            const correctAnswer = currentChain[currentWordIndex].toLowerCase();
+            
+            if (userAnswer === correctAnswer) {
+                // Play correct sound
+                playCorrectSound();
+                
+                // Correct answer
+                currentWordIndex++;
+                score += hintUsed ? 5 : 10;
+                scoreElement.textContent = score;
+                saveProgress();
+                
+                // Visual feedback for correct answer
+                const currentWordContainer = document.getElementById(`word-container-${currentWordIndex - 1}`);
+                currentWordContainer.classList.add('correct');
+                
+                // Reset for next word
+                wordInput.value = '';
+                hintText.classList.add('hidden');
+                hintUsed = false;
+                
+                // Check if level completed
+                if (currentWordIndex >= currentChain.length) {
+                    levelCompleted();
+                } else {
+                    displayWordChain();
+                }
+            } else {
+                // Wrong answer - shake the input
+                wordInput.classList.add('animate-shake');
+                setTimeout(() => {
+                    wordInput.classList.remove('animate-shake');
+                }, 500);
+            }
+        }
+        
+        // Level completed
+        function levelCompleted() {
+            clearInterval(timer);
+            
+            // Add time bonus
+            const timeBonus = timeLeft;
+            score += timeBonus;
+            scoreElement.textContent = score;
+            saveProgress();
+            
+            // Show celebration
+            showConfetti();
+            
+            // Disable input
+            wordInput.disabled = true;
+            submitBtn.disabled = true;
+            
+            // Reveal all words in the chain, especially the final word
+            revealFullWordChain();
+            
+            // Show level complete overlay
+            timeBonusElement.textContent = timeBonus;
+            levelScoreElement.textContent = score;
+            
+            levelCompleteOverlay.classList.add('visible');
+            setTimeout(() => {
+                levelCompleteOverlay.classList.remove('visible');
+            }, 3000);
+            
+            // Show next level button
+            nextLevelContainer.classList.remove('hidden');
+            
+            // Check if this was the last level
+            if (currentLevel >= wordChains.length - 1) {
+                nextLevelBtn.textContent = "See Final Results";
+            } else {
+                nextLevelBtn.textContent = "Next Challenge";
+            }
+        }
+        
+        // Reveal the full word chain, highlighting the final word
+        function revealFullWordChain() {
+            for (let i = 0; i < currentChain.length; i++) {
+                const wordContainer = document.getElementById(`word-container-${i}`);
+                if (!wordContainer) continue;
+                
+                // Clear the container except for the label
+                const label = wordContainer.querySelector('div');
+                const oldContent = wordContainer.innerHTML;
+                wordContainer.innerHTML = '';
+                wordContainer.appendChild(label);
+                
+                // Word boxes
+                const wordBoxes = document.createElement('div');
+                wordBoxes.className = 'flex justify-center';
+                
+                const word = currentChain[i];
+                
+                // Create letter boxes for the word
+                for (let j = 0; j < word.length; j++) {
+                    const letterBox = document.createElement('div');
+                    
+                    // Highlight the final word
+                    if (i === currentChain.length - 1) {
+                        letterBox.className = 'letter-box highlight bg-yellow-200 text-yellow-800 filled';
+                    } else {
+                        letterBox.className = 'letter-box bg-indigo-100 text-indigo-800 filled';
+                    }
+                    
+                    letterBox.textContent = word[j];
+                    wordBoxes.appendChild(letterBox);
+                }
+                
+                wordContainer.appendChild(wordBoxes);
+            }
+        }
+        
+        // Move to next level
+        function nextLevel() {
+            currentLevel++;
+            if (currentLevel < wordChains.length) {
+                levelElement.textContent = currentLevel + 1;
+                saveProgress();
+                startLevel();
+            } else {
+                endGame(true);
+            }
+        }
+        
+        // End game
+        function endGame(isWin) {
+            clearInterval(timer);
+            
+            modalTitle.textContent = isWin ? 'Congratulations!' : 'Game Over';
+            modalMessage.innerHTML = isWin 
+                ? `You've completed all levels!<br>Your final score: <span class="font-bold text-indigo-600">${score}</span>`
+                : `Time's up!<br>Your final score: <span class="font-bold text-indigo-600">${score}</span>`;
+            finalScore.textContent = score;
+            
+            gameOverModal.classList.remove('hidden');
+            
+            if (isWin) {
+                showConfetti();
+            }
+        }
+        
+        // Show hint
+        function showHint() {
+            if (!hintUsed && currentWordIndex < currentChain.length) {
+                const correctWord = currentChain[currentWordIndex];
+                hintText.textContent = `Hint: ${correctWord.charAt(0)}${correctWord.charAt(1)}${correctWord.charAt(2)}...`;
+                hintText.classList.remove('hidden');
+                hintUsed = true;
+            }
+        }
+        
+        // Show confetti animation
+        function showConfetti() {
+            for (let i = 0; i < 50; i++) {
+                createConfetti();
+            }
+        }
+        
+        function createConfetti() {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            
+            // Random position, color, and size
+            const left = Math.random() * 100;
+            const color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+            const size = Math.random() * 8 + 4;
+            
+            confetti.style.left = `${left}vw`;
+            confetti.style.backgroundColor = color;
+            confetti.style.width = `${size}px`;
+            confetti.style.height = `${size}px`;
+            confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+            
+            // Animation
+            const duration = Math.random() * 3 + 2;
+            confetti.style.animation = `fall ${duration}s linear forwards`;
+            
+            document.body.appendChild(confetti);
+            
+            // Remove after animation
+            setTimeout(() => {
+                confetti.remove();
+            }, duration * 1000);
+        }
+        
+        // Toggle sound effects
+        function toggleSoundEffects() {
+            soundEnabled = soundEffectsCheckbox.checked;
+        }
+        
+        // Toggle background music
+        function updateBackgroundMusic() {
+            musicEnabled = backgroundMusicToggle.checked;
+            toggleBackgroundMusic();
+        }
+        
+        // Save settings
+        function saveSettings() {
+            soundEnabled = soundEffectsCheckbox.checked;
+            musicEnabled = backgroundMusicToggle.checked;
+            
+            localStorage.setItem('wordLinkSoundEnabled', soundEnabled);
+            localStorage.setItem('wordLinkMusicEnabled', musicEnabled);
+            
+            toggleBackgroundMusic();
+            settingsModal.classList.add('hidden');
+        }
+        
+        // Event listeners - Home Screen
+        startGameBtn.addEventListener('click', showGameScreen);
+        
+        homeSettingsBtn.addEventListener('click', () => {
+            settingsModal.classList.remove('hidden');
+        });
+        
+        homeResetBtn.addEventListener('click', () => {
+            if (confirm('Reset all progress? This will start the game from Level 1.')) {
+                resetProgress();
+            }
+        });
+        
+        // Event listeners - Game Screen
+        homeBtn.addEventListener('click', showHomeScreen);
+        
+        submitBtn.addEventListener('click', checkAnswer);
+        
+        wordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                checkAnswer();
+            }
+        });
+        
+        hintBtn.addEventListener('click', showHint);
+        
+        nextLevelBtn.addEventListener('click', nextLevel);
+        
+        playAgainBtn.addEventListener('click', () => {
+            gameOverModal.classList.add('hidden');
+            resetProgress();
+            showHomeScreen();
+        });
+        
+        restartBtn.addEventListener('click', () => {
+            if (confirm('Restart this level? Your current progress will be lost.')) {
+                resetCurrentLevel();
+            }
+        });
+        
+        settingsBtn.addEventListener('click', () => {
+            settingsModal.classList.remove('hidden');
+        });
+        
+        closeSettingsBtn.addEventListener('click', () => {
+            settingsModal.classList.add('hidden');
+        });
+        
+        soundEffectsCheckbox.addEventListener('change', toggleSoundEffects);
+        backgroundMusicToggle.addEventListener('change', updateBackgroundMusic);
+        
+        saveSettingsBtn.addEventListener('click', saveSettings);
+        
+        // Close modals when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target === gameOverModal) {
+                gameOverModal.classList.add('hidden');
+            }
+            if (e.target === settingsModal) {
+                settingsModal.classList.add('hidden');
+            }
+        });
+        
+        // Add CSS for shake animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-5px); }
+                50% { transform: translateX(5px); }
+                75% { transform: translateX(-5px); }
+            }
+            .animate-shake {
+                animation: shake 0.5s;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Start the game
+        initGame();
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93420d5682358f1e',t:'MTc0NTI5MjcyNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
