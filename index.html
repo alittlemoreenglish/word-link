@@ -1049,8 +1049,8 @@
         
         playAgainBtn.addEventListener('click', () => {
             gameOverModal.classList.add('hidden');
-            resetProgress();
-            showHomeScreen();
+            resetCurrentLevel(); 
+            showGameScreen(); 
         });
         
         restartBtn.addEventListener('click', () => {
