@@ -193,6 +193,10 @@
         <source src="correct.mp3" type="audio/mp3">
     </audio>
     
+    <audio id="incorrect-sound" preload="auto">
+        <source src="wrong.mp3" type="audio/mp3">
+    </audio>
+
     <audio id="background-music" loop>
         <source src="background.mp3" type="audio/mp3">
     </audio>
@@ -510,6 +514,7 @@
         
         // DOM elements - Audio
         const correctSound = document.getElementById('correct-sound');
+        const incorrectSound = document.getElementById('incorrect-sound');
         const backgroundMusic = document.getElementById('background-music');
         
         // DOM elements - Home Screen
@@ -564,6 +569,19 @@
             }
         }
         
+        function playIncorrectSound() {
+            if (soundEnabled) {
+                try {
+                    incorrectSound.currentTime = 0;
+                    incorrectSound.play().catch(error => {
+                        console.log("Audio playback failed:", error);
+                    });
+                } catch (error) {
+                    console.log("Audio error:", error);
+                }
+            }
+        }
+
         // Control background music
         function toggleBackgroundMusic() {
             if (musicEnabled) {
@@ -838,6 +856,9 @@
                     displayWordChain();
                 }
             } else {
+                // Play incorrect sound
+                playIncorrectSound();
+
                 // Wrong answer - shake the input
                 wordInput.classList.add('animate-shake');
                 setTimeout(() => {
